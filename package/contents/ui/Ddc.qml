@@ -41,7 +41,11 @@ Item {
     }
 
     function refresh() {
-        enqueue({ kind: "read" });
+        enqueue({ kind: "read", codes: F.READ_CODES });
+        // ddcutil misreports undeclared codes inside a multi-code getvcp, so read each alone.
+        for (const code of F.SOLO_READ_CODES) {
+            enqueue({ kind: "read", codes: [code], optional: true });
+        }
     }
 
     function set(code, value) {
@@ -56,7 +60,7 @@ Item {
         if (job.kind === "write") {
             // Only the latest value per feature matters, e.g. while dragging a slider.
             queue = queue.filter(j => !(j.kind === "write" && j.code === job.code));
-        } else if (queue.some(j => j.kind === job.kind)) {
+        } else if (queue.some(j => j.kind === job.kind && String(j.codes) === String(job.codes))) {
             return;
         }
         queue = queue.concat([job]);
@@ -82,10 +86,11 @@ Item {
             runningCommand = "ddcutil detect --terse";
             break;
         case "read":
-            runningCommand = `ddcutil --bus ${bus} getvcp ${F.READ_CODES.map(F.hex).join(" ")} --terse`;
+            runningCommand = `ddcutil --bus ${bus} getvcp ${job.codes.map(F.hex).join(" ")} --terse`;
             break;
         case "write":
-            runningCommand = `ddcutil --bus ${bus} setvcp ${F.hex(job.code)} ${job.value} --noverify`;
+            // Several BenQ codes (e.g. KVM 0xE4) are missing from the capabilities string.
+            runningCommand = `ddcutil --bus ${bus} setvcp ${F.hex(job.code)} ${job.value} --noverify --permit-unknown-feature`;
             break;
         }
         runningJob = job;
@@ -108,6 +113,10 @@ Item {
             parseRead(stdout);
         }
 
+        if (exitCode !== 0 && job.optional) {
+            pump();
+            return;
+        }
         if (exitCode !== 0) {
             error = (stderr || stdout).trim() || i18n("ddcutil exited with code %1", exitCode);
             if (busOverride < 0) {
@@ -158,8 +167,8 @@ Item {
                 next[code] = { cur: fields[0], max: fields[1] };
                 break;
             case "CNC":
-                // mh ml sh sl; for non-continuous features only sl is meaningful.
-                next[code] = { cur: fields[3], max: 0 };
+                // mh ml sh sl; BenQ reports range-limited features' maximum in mh:ml.
+                next[code] = { cur: fields[3], max: (fields[0] << 8) | fields[1] };
                 break;
             case "SNC":
                 next[code] = { cur: fields[0], max: 0 };

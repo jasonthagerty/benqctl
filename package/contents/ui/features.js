@@ -10,8 +10,16 @@ var SHARPNESS = 0x87;
 var SATURATION = 0x8A;
 var MUTE = 0x8D;
 var PICTURE_MODE = 0xDC;
+var MOONHALO = 0xD7;
+var NIGHT_PROTECTION = 0xD1;
 
-var READ_CODES = [BRIGHTNESS, CONTRAST, COLOR_PRESET, INPUT, VOLUME, SHARPNESS, SATURATION, MUTE, PICTURE_MODE];
+// BenQ codes missing from the capabilities string; see docs/vcp-codes.md.
+var LOW_BLUE_LIGHT = 0x19;
+var KVM = 0xE4;
+
+var READ_CODES = [BRIGHTNESS, CONTRAST, COLOR_PRESET, INPUT, VOLUME, SHARPNESS, SATURATION, MUTE, PICTURE_MODE,
+                  MOONHALO, NIGHT_PROTECTION];
+var SOLO_READ_CODES = [KVM, LOW_BLUE_LIGHT];
 
 // MCCS 0x8D: 1 = muted, 2 = unmuted.
 var MUTED = 0x01;
@@ -31,8 +39,7 @@ var colorPresets = [
     { value: 0x0b, label: "User" },
 ];
 
-// Values match the RD280U capabilities string; labels come from
-// Pink-o/monitor-control's RD280UA notes and are not yet verified on this unit.
+// From Display Pilot 2's RD280U picture-mode schema. HDR is entered automatically on an HDR signal.
 var pictureModes = [
     { value: 0x0a, label: "sRGB" },
     { value: 0x0f, label: "M-Book" },
@@ -42,6 +49,26 @@ var pictureModes = [
     { value: 0x30, label: "Coding (Dark)" },
     { value: 0x31, label: "Coding (Light)" },
     { value: 0x32, label: "Cinema" },
+];
+
+// Which upstream USB port the monitor's hub (keyboard, mouse) is connected to.
+// Thunderbolt (1) exists in Display Pilot but not on the RD280U.
+var kvmPorts = [
+    { value: 0x04, label: "Auto" },
+    { value: 0x03, label: "USB-C" },
+    { value: 0x02, label: "USB-B" },
+];
+
+var moonHaloStates = [
+    { value: 0x10, label: "Off" },
+    { value: 0x20, label: "On" },
+    { value: 0x30, label: "Auto" },
+];
+
+var nightProtectionStates = [
+    { value: 0x00, label: "Auto" },
+    { value: 0x01, label: "On" },
+    { value: 0x02, label: "Off" },
 ];
 
 function hex(code) {

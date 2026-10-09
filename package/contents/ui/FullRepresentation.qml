@@ -64,23 +64,28 @@ PlasmaExtras.Representation {
             text: i18n("Input")
         }
 
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true
-            enabled: full.backend.has(F.INPUT)
+            columns: 2
 
-            Repeater {
-                model: F.inputs
-                delegate: PlasmaComponents3.Button {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    text: modelData.label
-                    checkable: true
-                    checked: full.backend.current(F.INPUT, -1) === modelData.value
-                    onClicked: {
-                        full.backend.set(F.INPUT, modelData.value);
-                        full.backend.refresh();
-                    }
-                }
+            PlasmaComponents3.Label {
+                text: i18n("Video")
+            }
+            ValueButtons {
+                Layout.fillWidth: true
+                backend: full.backend
+                code: F.INPUT
+                options: F.inputs
+            }
+
+            PlasmaComponents3.Label {
+                text: i18n("USB (KVM)")
+            }
+            ValueButtons {
+                Layout.fillWidth: true
+                backend: full.backend
+                code: F.KVM
+                options: F.kvmPorts
             }
         }
 
@@ -142,6 +147,45 @@ PlasmaExtras.Representation {
             backend: full.backend
             code: F.SATURATION
             label: i18n("Saturation")
+            maximum: 10
+        }
+
+        Kirigami.Heading {
+            level: 5
+            text: i18n("Eye care & lighting")
+            Layout.topMargin: Kirigami.Units.smallSpacing
+        }
+
+        GridLayout {
+            Layout.fillWidth: true
+            columns: 2
+
+            PlasmaComponents3.Label {
+                text: i18n("Night protection")
+            }
+            ValueComboBox {
+                Layout.fillWidth: true
+                backend: full.backend
+                code: F.NIGHT_PROTECTION
+                options: F.nightProtectionStates
+            }
+
+            PlasmaComponents3.Label {
+                text: i18n("MoonHalo")
+            }
+            ValueComboBox {
+                Layout.fillWidth: true
+                backend: full.backend
+                code: F.MOONHALO
+                options: F.moonHaloStates
+            }
+        }
+
+        FeatureSlider {
+            Layout.fillWidth: true
+            backend: full.backend
+            code: F.LOW_BLUE_LIGHT
+            label: i18n("Low blue light")
             maximum: 10
         }
 
