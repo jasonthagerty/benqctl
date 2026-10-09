@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "jasonthagerty@gmail.com",
+                "Name": "jasonthagerty"
+            }
+        ],
+        "Category": "System Information",
+        "Description": "Control a BenQ RD280U over DDC/CI: input, picture mode, brightness, volume",
+        "Icon": "video-display",
+        "Id": "com.github.jasonthagerty.benqctl",
+        "License": "GPL-2.0-or-later",
+        "Name": "BenQ Monitor",
+        "Version": "0.1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}
