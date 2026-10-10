@@ -95,6 +95,13 @@ PlasmaExtras.Representation {
             Layout.topMargin: Kirigami.Units.smallSpacing
         }
 
+        Kirigami.InlineMessage {
+            Layout.fillWidth: true
+            visible: full.backend.hdrActive
+            type: Kirigami.MessageType.Information
+            text: i18n("The monitor is in HDR mode, which locks picture mode, color temperature, brightness, contrast and saturation. Turn off HDR for this display in System Settings › Display & Monitor to change them.")
+        }
+
         GridLayout {
             Layout.fillWidth: true
             columns: 2

@@ -21,6 +21,11 @@ var READ_CODES = [BRIGHTNESS, CONTRAST, COLOR_PRESET, INPUT, VOLUME, SHARPNESS, 
                   MOONHALO, NIGHT_PROTECTION];
 var SOLO_READ_CODES = [KVM, LOW_BLUE_LIGHT];
 
+// The monitor switches to this picture mode on an HDR signal and then rejects
+// writes to these features (sharpness stays adjustable).
+var HDR_MODE = 0x23;
+var HDR_LOCKED = [BRIGHTNESS, CONTRAST, COLOR_PRESET, SATURATION, PICTURE_MODE];
+
 // MCCS 0x8D: 1 = muted, 2 = unmuted.
 var MUTED = 0x01;
 var UNMUTED = 0x02;

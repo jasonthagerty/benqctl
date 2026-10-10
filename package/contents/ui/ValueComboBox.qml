@@ -13,7 +13,7 @@ PlasmaComponents3.ComboBox {
 
     readonly property int currentFeatureValue: backend.current(code, -1)
 
-    enabled: backend.has(code)
+    enabled: backend.has(code) && !backend.locked(code)
     model: options
     textRole: "label"
     valueRole: "value"

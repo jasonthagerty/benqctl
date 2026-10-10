@@ -12,7 +12,7 @@ RowLayout {
     property int maximum: 100
 
     spacing: Kirigami.Units.smallSpacing
-    enabled: backend.has(code)
+    enabled: backend.has(code) && !backend.locked(code)
 
     PlasmaComponents3.Label {
         text: row.label

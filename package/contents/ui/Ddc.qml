@@ -13,6 +13,7 @@ Item {
 
     readonly property int bus: busOverride >= 0 ? busOverride : detectedBus
     readonly property bool busy: runningJob !== null
+    readonly property bool hdrActive: current(F.PICTURE_MODE, -1) === F.HDR_MODE
     property int detectedBus: -1
     property string monitorName: ""
     property string error: ""
@@ -35,6 +36,10 @@ Item {
         return v ? v.cur : fallback;
     }
 
+    function locked(code) {
+        return hdrActive && F.HDR_LOCKED.includes(code);
+    }
+
     function maximum(code, fallback) {
         const v = values[code];
         return v && v.max > 0 ? v.max : fallback;
@@ -54,6 +59,15 @@ Item {
         next[code] = { cur: value, max: values[code] ? values[code].max : 0 };
         values = next;
         enqueue({ kind: "write", code: code, value: value });
+        settle.restart();
+    }
+
+    // Writes use --noverify for speed, so re-read once they stop; rejected
+    // changes then snap back instead of showing a value the monitor never applied.
+    Timer {
+        id: settle
+        interval: 1500
+        onTriggered: ddc.refresh()
     }
 
     function enqueue(job) {
