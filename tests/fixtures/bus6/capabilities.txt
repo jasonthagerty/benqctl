@@ -1,0 +1,1 @@
+Unparsed capabilities string: (prot(monitor)type(LCD)model(U2723QE)cmds(01 02 03 07 0C F3)vcp(02 04 10 12 14(01 05 08 0B) 16 60(0F 11 1B) 62 8D(01 02) DC(00 03 05) D6(01 04 05))mccs_ver(2.1))

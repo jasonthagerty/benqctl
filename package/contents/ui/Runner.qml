@@ -18,6 +18,8 @@ Item {
     property var running: null
     property string runningCommand: ""
     property int sequence: 0
+    // How long a command may run before it is abandoned.
+    property int timeout: 15000
 
     function enqueue(job) {
         if (job.replace) {
@@ -70,7 +72,7 @@ Item {
     // would block the queue for good; give up on it and move on.
     Timer {
         id: watchdog
-        interval: 15000
+        interval: runner.timeout
         onTriggered: {
             executable.disconnectSource(runner.runningCommand);
             runner.finish(-1, "", i18n("ddcutil did not respond within %1 seconds.", watchdog.interval / 1000));

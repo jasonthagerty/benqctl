@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Fake ddcutil for the tests: answers from tests/fixtures instead of I2C.
+#   FAKE_DDCUTIL_DIR     scratch dir; every call is appended to $FAKE_DDCUTIL_DIR/calls
+#   $FAKE_DDCUTIL_DIR/detect  name of the detect fixture to print (default detect-two.txt)
+# getvcp prints "VCP XX ERR" and exits 1 for codes missing from bus<N>/getvcp.txt,
+# as the real ddcutil does.
+set -u
+fixtures="$(cd "$(dirname "$0")/../fixtures" && pwd)"
+echo "$*" >> "${FAKE_DDCUTIL_DIR:-/tmp}/calls"
+
+bus=""
+if [[ "${1:-}" == --bus ]]; then
+  bus=$2
+  shift 2
+fi
+command=${1:-}
+shift || true
+dir="$fixtures/bus$bus"
+
+case "$command" in
+detect)
+  cat "$fixtures/$(cat "${FAKE_DDCUTIL_DIR:-/tmp}/detect" 2>/dev/null || echo detect-two.txt)"
+  ;;
+capabilities)
+  [[ -d "$dir" ]] || { echo "Display not found" >&2; exit 1; }
+  cat "$dir/capabilities.txt"
+  ;;
+getvcp)
+  [[ -d "$dir" ]] || { echo "Display not found" >&2; exit 1; }
+  rc=0
+  for code in "$@"; do
+    [[ "$code" == --* ]] && continue
+    grep -m1 "^VCP $code " "$dir/getvcp.txt" || { echo "VCP $code ERR"; rc=1; }
+  done
+  exit $rc
+  ;;
+setvcp)
+  [[ -d "$dir" ]] || { echo "Display not found" >&2; exit 1; }
+  ;;
+*)
+  echo "fake ddcutil: unsupported command: $command" >&2
+  exit 2
+  ;;
+esac

@@ -1,5 +1,7 @@
 import QtQuick
 
+import "ddcutil.js" as Ddcutil
+
 // Finds DDC/CI monitors with ddcutil detect and keeps one Ddc per monitor,
 // matched across re-detections by identity rather than bus number.
 Item {
@@ -42,7 +44,7 @@ Item {
                     return;
                 }
                 lastDetect = Date.now();
-                apply(parseDetect(stdout));
+                apply(Ddcutil.parseDetect(stdout));
             },
         });
     }
@@ -60,40 +62,6 @@ Item {
         return displays.find(d => d.connector === connector) || displays[0] || null;
     }
 
-    function parseDetect(stdout) {
-        const found = [];
-        for (const block of stdout.split(/\n\s*\n/)) {
-            if (block.startsWith("Invalid display")) {
-                continue;
-            }
-            const busMatch = block.match(/I2C bus:\s*\/dev\/i2c-(\d+)/);
-            const monitorMatch = block.match(/Monitor:\s*(.*)/);
-            if (!busMatch || !monitorMatch) {
-                continue;
-            }
-            const connectorMatch = block.match(/DRM connector:\s*(?:card\d+-)?(\S+)/);
-            const monitor = monitorMatch[1].trim();
-            const [mfg, model, serial] = monitor.split(":");
-            const connector = connectorMatch ? connectorMatch[1] : "";
-            found.push({
-                id: serial ? monitor : `${monitor}@${connector || busMatch[1]}`,
-                mfgModel: `${mfg}:${model}`,
-                name: model || monitor,
-                connector: connector,
-                bus: parseInt(busMatch[1]),
-            });
-        }
-        const shared = key => found.filter(f => found.some(o => o !== f && o[key] === f[key]));
-        // Some monitors share a serial (e.g. "0"); keep ids unique. Then tell identical models apart.
-        for (const f of shared("id")) {
-            f.id = `${f.id}@${f.connector || f.bus}`;
-        }
-        for (const f of shared("name")) {
-            f.name = `${f.name} (${f.connector || f.bus})`;
-        }
-        return found;
-    }
-
     function apply(found) {
         const old = {};
         for (const d of displays) {
@@ -103,7 +71,9 @@ Item {
             let d = old[f.id];
             if (d) {
                 delete old[f.id];
-                const retry = d.bus !== f.bus || d.error !== "";
+                // Retry only if the display moved: one that keeps failing (e.g. in
+                // standby) would otherwise loop failed -> detect -> refresh forever.
+                const retry = d.bus !== f.bus;
                 d.bus = f.bus;
                 d.connector = f.connector;
                 d.name = f.name;

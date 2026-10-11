@@ -1,5 +1,6 @@
 import QtQuick
 
+import "ddcutil.js" as Ddcutil
 import "mccs.js" as Mccs
 import "profiles.js" as Profiles
 
@@ -56,7 +57,7 @@ Item {
         }
         if (profile.readCodes.length > 0) {
             run("read", () => `ddcutil --bus ${bus} getvcp ${profile.readCodes.map(Mccs.hex).join(" ")} --terse`,
-                { done: parseRead });
+                { done: parseRead, partial: true });
         }
         // ddcutil misreports undeclared codes inside a multi-code getvcp, so read each alone.
         for (const code of profile.soloReadCodes) {
@@ -100,7 +101,9 @@ Item {
             command: command,
             replace: !!options.replace,
             done: (exitCode, stdout, stderr) => {
-                if (exitCode !== 0) {
+                // getvcp exits 1 if any one code fails ("VCP 94 ERR") but still
+                // reports the rest; keep those rather than failing the read.
+                if (exitCode !== 0 && !(options.partial && /^VCP [0-9A-F]{2} (?!ERR)/m.test(stdout))) {
                     if (!options.optional) {
                         error = (stderr || stdout).trim() || i18n("ddcutil exited with code %1", exitCode);
                         runner.cancel(`${displayId}/`);
@@ -116,29 +119,7 @@ Item {
         });
     }
 
-    // Terse lines: "VCP 10 C 82 100", "VCP 14 CNC x00 x0b x00 x0b", "VCP 60 SNC x0f"
     function parseRead(stdout) {
-        const next = Object.assign({}, values);
-        for (const line of stdout.split("\n")) {
-            const m = line.match(/^VCP ([0-9A-F]{2}) (\S+) ?(.*)$/);
-            if (!m) {
-                continue;
-            }
-            const code = parseInt(m[1], 16);
-            const fields = m[3].split(" ").map(s => parseInt(s.replace(/^x/, ""), s.startsWith("x") ? 16 : 10));
-            switch (m[2]) {
-            case "C":
-                next[code] = { cur: fields[0], max: fields[1] };
-                break;
-            case "CNC":
-                // mh ml sh sl; BenQ reports range-limited features' maximum in mh:ml.
-                next[code] = { cur: fields[3], max: (fields[0] << 8) | fields[1] };
-                break;
-            case "SNC":
-                next[code] = { cur: fields[0], max: 0 };
-                break;
-            }
-        }
-        values = next;
+        values = Object.assign({}, values, Ddcutil.parseGetvcp(stdout));
     }
 }
