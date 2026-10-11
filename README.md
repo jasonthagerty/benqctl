@@ -1,8 +1,18 @@
 # benqctl
 
-A KDE Plasma 6 widget for the BenQ RD280U, controlled over DDC/CI with `ddcutil`.
+A KDE Plasma 6 widget that controls external monitors over DDC/CI with `ddcutil`.
+Every monitor `ddcutil detect` finds gets a tab; the popup opens on the monitor the
+widget's panel is on.
 
-## Controls
+## Profiles
+
+Controls come from a profile, chosen by the `MFG:Model` that `ddcutil detect` reports
+(see `contents/ui/profiles.js`):
+
+- **Generic** — any monitor. Shows the standard MCCS features its capabilities string
+  declares (input, display mode, color preset, brightness, contrast, sharpness,
+  saturation, RGB gain, volume, mute), with value lists taken from that string.
+- **BenQ RD280U** — vendor labels, vendor-only codes and HDR locking:
 
 | Control | VCP | Notes |
 |---|---|---|
@@ -17,15 +27,20 @@ A KDE Plasma 6 widget for the BenQ RD280U, controlled over DDC/CI with `ddcutil`
 | Low blue light | `0x19` | Undeclared vendor code; monitor reports max 5 |
 | Volume, mute | `0x62`, `0x8D` | volume max 50; mute: 1 = muted, 2 = unmuted |
 
-See [docs/vcp-codes.md](docs/vcp-codes.md) for the full code map and how it was
-derived. Remaining unmapped codes can be found with `tools/vcp-diff.sh`, which diffs
-all readable codes around an OSD change.
+See [docs/vcp-codes.md](docs/vcp-codes.md) for the full RD280U code map and how it
+was derived. Unmapped codes can be found with `tools/vcp-diff.sh`, which diffs all
+readable codes around an OSD change.
+
+To add a monitor, add a profile to `vendorProfiles` in `profiles.js` with a `match`
+regex; controls not listed in the monitor's capabilities string are dropped unless
+marked `undeclared`.
 
 ## Requirements
 
 - Plasma 6, `ddcutil` 2.x+
 - Read/write access to `/dev/i2c-*` (the `i2c-dev` module loaded and a udev rule
   or group membership; `ddcutil detect` working as your user is enough)
+- DDC/CI enabled in each monitor's OSD. Laptop panels don't support DDC/CI.
 
 ## Install / develop
 
@@ -39,13 +54,19 @@ A panel instance only picks up changes after `plasmashell --replace &` (or re-lo
 
 ## Design notes
 
-- `contents/ui/Ddc.qml` runs `ddcutil` through Plasma's executable data engine.
-  Commands are serialised (concurrent I2C transactions corrupt each other), slider
-  writes are coalesced per feature, and writes are applied optimistically.
-- The bus is auto-detected once by matching `ddcutil detect` output against the
-  configured model/serial, and re-detected after a failure.
-- Each ddcutil call takes ~0.5 s, so values are re-read only when the popup opens.
+- `Runner.qml` runs every `ddcutil` command through one queue (concurrent I2C
+  transactions corrupt each other) with a 15 s watchdog for hung calls. Slider writes
+  are coalesced per feature and applied optimistically, then re-read.
+- `DisplayManager.qml` runs `ddcutil detect` at startup, 3 s after screens are added
+  or removed, after a command fails, and when the popup opens if the last detection
+  is over a minute old. Monitors are tracked by `MFG:Model:Serial`, not bus number.
+  The DRM connector `ddcutil` reports (`DP-1`) matches Qt's `Screen.name`, which is
+  how the widget picks its own screen's monitor.
+- `Ddc.qml` (one per monitor) reads the capabilities string once to resolve its
+  profile; `ddcutil` caches capabilities on disk, so this takes ~0.2 s.
+- Values are re-read only for the shown monitor, when the popup opens or a tab is
+  selected (~0.6 s per read).
 - Codes missing from the capabilities string (`0xE4`, `0x19`) are read in their own
   `getvcp` call: inside a multi-code read ddcutil returned wrong values for them.
-- PowerDevil also opens this monitor through libddcutil, but its brightness slider
-  did not change the monitor's `0x10` in testing, so brightness is written directly.
+- PowerDevil also opens monitors through libddcutil, but its brightness slider did
+  not change the RD280U's `0x10` in testing, so brightness is written directly.

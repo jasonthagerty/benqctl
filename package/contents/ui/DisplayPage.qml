@@ -1,0 +1,62 @@
+import QtQuick
+import QtQuick.Layouts
+import org.kde.kirigami as Kirigami
+
+// All controls for one monitor, laid out from its profile.
+ColumnLayout {
+    id: page
+
+    required property Ddc ddc
+
+    spacing: Kirigami.Units.smallSpacing
+
+    Kirigami.InlineMessage {
+        Layout.fillWidth: true
+        visible: (page.ddc?.error ?? "") !== ""
+        type: Kirigami.MessageType.Error
+        text: page.ddc?.error ?? ""
+        actions: Kirigami.Action {
+            text: i18n("Retry")
+            icon.name: "view-refresh"
+            onTriggered: page.ddc?.refresh()
+        }
+    }
+
+    Repeater {
+        model: page.ddc?.activeLocks ?? []
+        delegate: Kirigami.InlineMessage {
+            required property var modelData
+            Layout.fillWidth: true
+            visible: true
+            type: Kirigami.MessageType.Information
+            text: modelData.message
+        }
+    }
+
+    Repeater {
+        model: page.ddc?.profile?.sections ?? []
+        delegate: ColumnLayout {
+            id: section
+
+            required property var modelData
+            required property int index
+
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.smallSpacing
+
+            Kirigami.Heading {
+                level: 5
+                text: section.modelData.title
+                Layout.topMargin: section.index > 0 ? Kirigami.Units.smallSpacing : 0
+            }
+
+            Repeater {
+                model: section.modelData.controls
+                delegate: ControlRow {
+                    Layout.fillWidth: true
+                    backend: page.ddc
+                }
+            }
+        }
+    }
+}

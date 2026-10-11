@@ -1,36 +1,39 @@
 import QtQuick
+import QtQuick.Window
 import org.kde.plasma.plasmoid
-
-import "features.js" as F
 
 PlasmoidItem {
     id: root
 
-    Ddc {
-        id: ddc
-        modelMatch: Plasmoid.configuration.modelMatch
-        busOverride: Plasmoid.configuration.busOverride
+    DisplayManager {
+        id: displayManager
+        preferredConnector: root.Screen.name
+        Component.onCompleted: detect()
     }
 
     Plasmoid.icon: "video-display"
 
-    toolTipMainText: ddc.monitorName || i18n("BenQ Monitor")
-    toolTipSubText: ddc.error !== ""
-        ? ddc.error
-        : ddc.has(F.INPUT)
-            ? i18n("Input: %1 · Mode: %2",
-                   F.labelFor(F.inputs, ddc.current(F.INPUT)),
-                   F.labelFor(F.pictureModes, ddc.current(F.PICTURE_MODE)))
-            : ""
+    toolTipMainText: displayManager.displays.length === 1 ? displayManager.displays[0].name : i18n("Monitors")
+    toolTipSubText: displayManager.error !== ""
+        ? displayManager.error
+        : displayManager.displays.length === 1
+            ? displayManager.displays[0].status
+            : displayManager.displays.map(d => `${d.name}: ${d.status}`).join("\n")
 
-    // Reading over I2C is slow, so only refresh when the popup is opened.
-    onExpandedChanged: if (expanded) {
-        ddc.refresh();
+    // Reading over I2C is slow, so only refresh when the popup is opened, and then
+    // only the monitor this widget is on; other tabs are read when selected.
+    onExpandedChanged: expanded => {
+        if (!expanded) {
+            return;
+        }
+        displayManager.ensureFresh();
+        displayManager.selected = displayManager.forConnector(displayManager.preferredConnector);
+        if (displayManager.selected) {
+            displayManager.selected.refresh();
+        }
     }
 
-    Component.onCompleted: ddc.refresh()
-
     fullRepresentation: FullRepresentation {
-        backend: ddc
+        manager: displayManager
     }
 }

@@ -10,8 +10,6 @@ RowLayout {
     required property int code
     required property var options
 
-    enabled: backend.has(code)
-
     Repeater {
         model: row.options
         delegate: PlasmaComponents3.Button {

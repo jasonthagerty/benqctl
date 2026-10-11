@@ -1,7 +1,7 @@
 import QtQuick
 import org.kde.plasma.components as PlasmaComponents3
 
-import "features.js" as F
+import "mccs.js" as Mccs
 
 // Combo box for a non-continuous VCP feature with a known list of values.
 PlasmaComponents3.ComboBox {
@@ -13,14 +13,13 @@ PlasmaComponents3.ComboBox {
 
     readonly property int currentFeatureValue: backend.current(code, -1)
 
-    enabled: backend.has(code) && !backend.locked(code)
     model: options
     textRole: "label"
     valueRole: "value"
     currentIndex: options.findIndex(o => o.value === currentFeatureValue)
     displayText: currentIndex >= 0 || currentFeatureValue < 0
         ? currentText
-        : i18n("Unknown (%1)", F.labelFor(options, currentFeatureValue))
+        : i18n("Unknown (0x%1)", Mccs.hex(currentFeatureValue))
 
     onActivated: backend.set(code, currentValue)
 }

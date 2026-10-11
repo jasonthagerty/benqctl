@@ -8,17 +8,9 @@ RowLayout {
 
     required property Ddc backend
     required property int code
-    required property string label
     property int maximum: 100
 
     spacing: Kirigami.Units.smallSpacing
-    enabled: backend.has(code) && !backend.locked(code)
-
-    PlasmaComponents3.Label {
-        text: row.label
-        Layout.preferredWidth: Kirigami.Units.gridUnit * 5
-        elide: Text.ElideRight
-    }
 
     PlasmaComponents3.Slider {
         id: slider
@@ -27,9 +19,11 @@ RowLayout {
         to: row.backend.maximum(row.code, row.maximum)
         stepSize: 1
         value: row.backend.current(row.code, 0)
-        onMoved: debounce.restart()
+        onMoved: if (!throttle.running) {
+            throttle.start();
+        }
         onPressedChanged: if (!pressed) {
-            debounce.stop();
+            throttle.stop();
             row.send();
         }
     }
@@ -40,9 +34,10 @@ RowLayout {
         Layout.preferredWidth: Kirigami.Units.gridUnit * 1.5
     }
 
-    // Each ddcutil write takes ~0.5 s, so only send while dragging at a modest rate.
+    // Each ddcutil write takes ~0.5 s, so send at most every 250 ms while dragging;
+    // Ddc coalesces whatever piles up behind the running write.
     Timer {
-        id: debounce
+        id: throttle
         interval: 250
         onTriggered: row.send()
     }

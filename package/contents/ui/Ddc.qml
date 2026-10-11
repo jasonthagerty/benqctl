@@ -1,31 +1,35 @@
 import QtQuick
-import org.kde.plasma.plasma5support as P5Support
 
-import "features.js" as F
+import "mccs.js" as Mccs
+import "profiles.js" as Profiles
 
-// Talks to the monitor by running ddcutil. Commands run one at a time because
-// concurrent transactions on the same I2C bus corrupt each other.
+// One monitor, controlled by running ddcutil through the shared Runner.
 Item {
     id: ddc
 
-    property string modelMatch: "RD280U"
-    property int busOverride: -1
+    required property Runner runner
+    // Stable identity from ddcutil detect: "MFG:Model:Serial" (plus connector if
+    // there is no serial). Bus numbers change across replugs and resumes.
+    required property string displayId
+    required property string mfgModel
+    property string name
+    property string connector
+    property int bus: -1
 
-    readonly property int bus: busOverride >= 0 ? busOverride : detectedBus
-    readonly property bool busy: runningJob !== null
-    readonly property bool hdrActive: current(F.PICTURE_MODE, -1) === F.HDR_MODE
-    property int detectedBus: -1
-    property string monitorName: ""
+    // Resolved from the capabilities string on first refresh; see profiles.js.
+    property var profile: null
     property string error: ""
     // VCP code -> { cur, max }
     property var values: ({})
 
-    property var queue: []
-    property var runningJob: null
-    property string runningCommand: ""
+    readonly property var activeLocks: profile ? profile.locks.filter(l => current(l.code, -1) === l.value) : []
+    // One-line state for tooltips, e.g. "DisplayPort · Coding (Dark)".
+    readonly property string status: error !== "" || !profile
+        ? error
+        : profile.summary.map(code => Profiles.describe(profile.controls[code], values[code])).filter(s => s).join(" · ")
 
-    onModelMatchChanged: detectedBus = -1
-    onBusOverrideChanged: refresh()
+    // A command failed; the bus may have changed.
+    signal failed()
 
     function has(code) {
         return values[code] !== undefined;
@@ -36,21 +40,39 @@ Item {
         return v ? v.cur : fallback;
     }
 
-    function locked(code) {
-        return hdrActive && F.HDR_LOCKED.includes(code);
-    }
-
     function maximum(code, fallback) {
         const v = values[code];
         return v && v.max > 0 ? v.max : fallback;
     }
 
+    function locked(code) {
+        return activeLocks.some(l => l.codes.includes(code));
+    }
+
     function refresh() {
-        enqueue({ kind: "read", codes: F.READ_CODES });
-        // ddcutil misreports undeclared codes inside a multi-code getvcp, so read each alone.
-        for (const code of F.SOLO_READ_CODES) {
-            enqueue({ kind: "read", codes: [code], optional: true });
+        if (!profile) {
+            loadProfile();
+            return;
         }
+        if (profile.readCodes.length > 0) {
+            run("read", () => `ddcutil --bus ${bus} getvcp ${profile.readCodes.map(Mccs.hex).join(" ")} --terse`,
+                { done: parseRead });
+        }
+        // ddcutil misreports undeclared codes inside a multi-code getvcp, so read each alone.
+        for (const code of profile.soloReadCodes) {
+            run(`read-${code}`, () => `ddcutil --bus ${bus} getvcp ${Mccs.hex(code)} --terse`,
+                { done: parseRead, optional: true });
+        }
+    }
+
+    // ddcutil caches capabilities on disk, so this is cheap after the first run.
+    function loadProfile() {
+        run("caps", () => `ddcutil --bus ${bus} capabilities --terse`, {
+            done: stdout => {
+                profile = Profiles.forDisplay(mfgModel, Mccs.parseCapabilities(stdout));
+                refresh();
+            },
+        });
     }
 
     function set(code, value) {
@@ -58,7 +80,9 @@ Item {
         const next = Object.assign({}, values);
         next[code] = { cur: value, max: values[code] ? values[code].max : 0 };
         values = next;
-        enqueue({ kind: "write", code: code, value: value });
+        // Vendor codes are often missing from the capabilities string.
+        run(`write-${code}`, () => `ddcutil --bus ${bus} setvcp ${Mccs.hex(code)} ${value} --noverify --permit-unknown-feature`,
+            { replace: true });
         settle.restart();
     }
 
@@ -70,100 +94,26 @@ Item {
         onTriggered: ddc.refresh()
     }
 
-    function enqueue(job) {
-        if (job.kind === "write") {
-            // Only the latest value per feature matters, e.g. while dragging a slider.
-            queue = queue.filter(j => !(j.kind === "write" && j.code === job.code));
-        } else if (queue.some(j => j.kind === job.kind && String(j.codes) === String(job.codes))) {
-            return;
-        }
-        queue = queue.concat([job]);
-        pump();
-    }
-
-    function pump() {
-        if (runningJob || queue.length === 0) {
-            return;
-        }
-        if (bus < 0) {
-            start({ kind: "detect" });
-            return;
-        }
-        const job = queue[0];
-        queue = queue.slice(1);
-        start(job);
-    }
-
-    function start(job) {
-        switch (job.kind) {
-        case "detect":
-            runningCommand = "ddcutil detect --terse";
-            break;
-        case "read":
-            runningCommand = `ddcutil --bus ${bus} getvcp ${job.codes.map(F.hex).join(" ")} --terse`;
-            break;
-        case "write":
-            // Several BenQ codes (e.g. KVM 0xE4) are missing from the capabilities string.
-            runningCommand = `ddcutil --bus ${bus} setvcp ${F.hex(job.code)} ${job.value} --noverify --permit-unknown-feature`;
-            break;
-        }
-        runningJob = job;
-        executable.connectSource(runningCommand);
-    }
-
-    function finish(exitCode, stdout, stderr) {
-        const job = runningJob;
-        runningJob = null;
-        runningCommand = "";
-
-        if (job.kind === "detect") {
-            parseDetect(stdout);
-            if (detectedBus < 0) {
-                error = i18n("No display matching “%1” found by ddcutil.", modelMatch);
-                queue = [];
-                return;
-            }
-        } else if (job.kind === "read") {
-            parseRead(stdout);
-        }
-
-        if (exitCode !== 0 && job.optional) {
-            pump();
-            return;
-        }
-        if (exitCode !== 0) {
-            error = (stderr || stdout).trim() || i18n("ddcutil exited with code %1", exitCode);
-            if (busOverride < 0) {
-                // Bus numbers can change across replugs and resumes; re-detect next time.
-                detectedBus = -1;
-            }
-            queue = [];
-            return;
-        }
-        if (job.kind !== "detect") {
-            error = "";
-        }
-        pump();
-    }
-
-    function parseDetect(stdout) {
-        detectedBus = -1;
-        for (const block of stdout.split(/\n\s*\n/)) {
-            if (block.startsWith("Invalid display")) {
-                continue;
-            }
-            const busMatch = block.match(/I2C bus:\s*\/dev\/i2c-(\d+)/);
-            const monitorMatch = block.match(/Monitor:\s*(.*)/);
-            if (!busMatch || !monitorMatch) {
-                continue;
-            }
-            const monitor = monitorMatch[1].trim();
-            if (monitor.toLowerCase().includes(modelMatch.toLowerCase())) {
-                detectedBus = parseInt(busMatch[1]);
-                monitorName = monitor.split(":")[1] || monitor;
-                return;
-            }
-        }
+    function run(key, command, options) {
+        runner.enqueue({
+            key: `${displayId}/${key}`,
+            command: command,
+            replace: !!options.replace,
+            done: (exitCode, stdout, stderr) => {
+                if (exitCode !== 0) {
+                    if (!options.optional) {
+                        error = (stderr || stdout).trim() || i18n("ddcutil exited with code %1", exitCode);
+                        runner.cancel(`${displayId}/`);
+                        failed();
+                    }
+                    return;
+                }
+                error = "";
+                if (options.done) {
+                    options.done(stdout);
+                }
+            },
+        });
     }
 
     // Terse lines: "VCP 10 C 82 100", "VCP 14 CNC x00 x0b x00 x0b", "VCP 60 SNC x0f"
@@ -190,16 +140,5 @@ Item {
             }
         }
         values = next;
-    }
-
-    P5Support.DataSource {
-        id: executable
-        engine: "executable"
-        onNewData: (source, data) => {
-            disconnectSource(source);
-            if (source === ddc.runningCommand) {
-                ddc.finish(data["exit code"], data["stdout"], data["stderr"]);
-            }
-        }
     }
 }
