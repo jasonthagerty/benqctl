@@ -5,6 +5,10 @@
 set -euo pipefail
 
 BUS="${BENQ_BUS:-$(ddcutil detect --terse 2>/dev/null | awk '/I2C bus:/{b=$3} /Monitor:.*RD280U/{sub("/dev/i2c-","",b); print b; exit}')}"
+if [[ -z "$BUS" ]]; then
+  echo "RD280U not found by 'ddcutil detect'; set BENQ_BUS to its I2C bus number." >&2
+  exit 1
+fi
 CODES=(10 12 14 16 18 1A 52 60 62 72 86 87 8A 8D C9 CA CC D1 D2 D7 D9 DC E1 E2 E3 E5 E6 E7 E9 EB EE EF F0 F1 F8 FD)
 
 snap() {
@@ -14,6 +18,10 @@ snap() {
 }
 
 if [[ "${1:-}" == snap ]]; then
+  if [[ -z "${2:-}" ]]; then
+    echo "Usage: $0 snap FILE" >&2
+    exit 2
+  fi
   snap > "$2"
   exit
 fi
