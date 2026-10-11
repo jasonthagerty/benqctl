@@ -1,6 +1,7 @@
 import QtQuick
 
 import "ddcutil.js" as Ddcutil
+import "userprofiles.js" as UserProfiles
 
 // Finds DDC/CI monitors with ddcutil detect and keeps one Ddc per monitor,
 // matched across re-detections by identity rather than bus number.
@@ -14,6 +15,12 @@ Item {
     property string preferredConnector
     property string error: ""
     property double lastDetect: 0
+    // Expanded user profile definitions, and "file: problem" for ones that failed.
+    property var userProfiles: []
+    property var profileErrors: []
+    property bool profilesRequested: false
+    // Serialised userProfiles, so a reload that changes nothing doesn't rebuild every page.
+    property string profilesKey: "[]"
     readonly property bool busy: commandRunner.busy
 
     Runner {
@@ -24,6 +31,7 @@ Item {
         id: ddcComponent
         Ddc {
             runner: commandRunner
+            userProfiles: manager.userProfiles
         }
     }
 
@@ -34,7 +42,29 @@ Item {
         }
     }
 
+    // Reads user profiles. Queued like any command, so displays detected after
+    // it resolve their profiles with the user profiles already loaded.
+    function loadProfiles() {
+        profilesRequested = true;
+        commandRunner.enqueue({
+            key: "profiles",
+            command: () => UserProfiles.LIST_COMMAND,
+            done: (exitCode, stdout, stderr) => {
+                const result = UserProfiles.load(UserProfiles.parseListing(stdout));
+                const key = JSON.stringify(result.defs, (k, v) => v instanceof RegExp ? v.source : v);
+                if (key !== profilesKey) {
+                    profilesKey = key;
+                    userProfiles = result.defs;
+                }
+                profileErrors = exitCode === 0 ? result.errors : result.errors.concat([stderr.trim()]);
+            },
+        });
+    }
+
     function detect() {
+        if (!profilesRequested) {
+            loadProfiles();
+        }
         commandRunner.enqueue({
             key: "detect",
             command: () => "ddcutil detect --terse",
@@ -49,8 +79,9 @@ Item {
         });
     }
 
-    // Re-detects, then re-reads the selected monitor.
+    // Reloads user profiles, re-detects, then re-reads the selected monitor.
     function refresh() {
+        loadProfiles();
         detect();
         if (selected) {
             selected.refresh();

@@ -33,10 +33,12 @@ package/contents/ui/
   ddcutil.js              parsers for detect and getvcp --terse output
   mccs.js                 standard VCP codes/value names, capabilities parser
   profiles.js             generic and vendor profiles -> resolved control lists
+  userprofiles.js         loads, validates and expands JSON user profiles
   FullRepresentation.qml  popup: header, tab per monitor
   DisplayPage.qml         one monitor's sections and controls, from its profile
   ControlRow.qml          label + slider / combo box / buttons / switch
 tests/                    Qt Quick Test suite, fixtures and a fake ddcutil
+docs/user-profiles.md     user profile format; docs/examples/ is tested
 tools/vcp-diff.sh         find which VCP code an OSD setting changes
 docs/vcp-codes.md         RD280U vendor code map
 ```
@@ -52,14 +54,18 @@ tests/run.sh -input tests/tst_profiles.qml           # one file
 tests/run.sh -input tests/tst_runner.qml runner::test_replace_keeps_only_the_latest_job
 ```
 
-- `tst_ddcutil.qml`, `tst_mccs.qml` and `tst_profiles.qml` are unit tests of the
-  JS modules, fed real output recorded from an RD280U (`tests/fixtures/`).
+- `tst_ddcutil.qml`, `tst_mccs.qml`, `tst_profiles.qml` and `tst_userprofiles.qml`
+  are unit tests of the JS modules, fed real output recorded from an RD280U
+  (`tests/fixtures/`). The examples in `docs/examples/` are loaded too, so the
+  documented format can't drift from the code.
 - `tst_runner.qml` runs real shell commands through `Runner`: ordering, coalescing,
   cancellation and the watchdog.
 - `tst_display_manager.qml` runs `DisplayManager` and `Ddc` end to end against
   `tests/bin/ddcutil`, a fake that answers from `tests/fixtures/bus<N>/`. `run.sh`
   puts it first on `PATH`. Every call is logged to `$FAKE_DDCUTIL_DIR/calls`, and a
   test can switch the detect fixture by writing its name to `$FAKE_DDCUTIL_DIR/detect`.
+  `XDG_DATA_HOME` points into the same temporary directory, so user profiles are
+  read from there and never from your own.
 
 None of the tests touch real hardware. When ddcutil's behaviour matters, record its
 real output into a fixture instead of writing one by hand. For example, `getvcp` exits
@@ -81,6 +87,10 @@ inside delegates and inline components are expected:
 Monitors without a profile already get the generic one, built from their
 capabilities string. Add a profile when a monitor has vendor-only codes, values that
 need better names, or quirks.
+
+Start with a [user profile](docs/user-profiles.md): a JSON file you can iterate on
+with the widget's refresh button, no reinstall needed. Once it works, porting it to
+`profiles.js` makes it bundled for everyone.
 
 1. Collect what the monitor declares:
    ```sh

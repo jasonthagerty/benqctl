@@ -75,6 +75,17 @@ PlasmaExtras.Representation {
         }
         spacing: Kirigami.Units.smallSpacing
 
+        Repeater {
+            model: full.manager.profileErrors
+            delegate: Kirigami.InlineMessage {
+                required property string modelData
+                Layout.fillWidth: true
+                visible: true
+                type: Kirigami.MessageType.Warning
+                text: i18n("Profile not loaded: %1", modelData)
+            }
+        }
+
         PlasmaExtras.PlaceholderMessage {
             Layout.fillWidth: true
             visible: !full.manager.selected

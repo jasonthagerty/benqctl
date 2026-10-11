@@ -10,6 +10,8 @@ FAKE_DDCUTIL_DIR="$(mktemp -d)"
 trap 'rm -rf "$FAKE_DDCUTIL_DIR"' EXIT
 
 export FAKE_DDCUTIL_DIR
+# User profiles are read from here; keeps tests away from the real ones.
+export XDG_DATA_HOME="$FAKE_DDCUTIL_DIR/data"
 export PATH="$here/bin:$PATH"
 export QML_XHR_ALLOW_FILE_READ=1
 export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"

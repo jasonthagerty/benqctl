@@ -33,7 +33,12 @@ See [docs/vcp-codes.md](docs/vcp-codes.md) for the full RD280U code map and how 
 was derived. Unmapped codes can be found with `tools/vcp-diff.sh`, which diffs all
 readable codes around an OSD change.
 
-To add a profile for another monitor, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor-profile).
+- **User profiles**: JSON files in `~/.local/share/benqctl/profiles/` that rename
+  values, add vendor codes or hide controls for your own monitors. They take
+  precedence over the bundled profiles and are reloaded by the refresh button. See
+  [docs/user-profiles.md](docs/user-profiles.md).
+
+To contribute a bundled profile, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor-profile).
 
 ## Requirements
 

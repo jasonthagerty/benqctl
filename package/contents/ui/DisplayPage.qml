@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import org.kde.plasma.components as PlasmaComponents3
 import org.kde.kirigami as Kirigami
 
 // All controls for one monitor, laid out from its profile.
@@ -58,5 +59,17 @@ ColumnLayout {
                 }
             }
         }
+    }
+
+    PlasmaComponents3.Label {
+        Layout.fillWidth: true
+        Layout.topMargin: Kirigami.Units.smallSpacing
+        visible: !!page.ddc?.profile
+        text: page.ddc?.profile?.file
+            ? i18n("Profile: %1 (%2)", page.ddc.profile.name, page.ddc.profile.file)
+            : i18n("Profile: %1", page.ddc?.profile?.name ?? "")
+        font: Kirigami.Theme.smallFont
+        opacity: 0.7
+        elide: Text.ElideRight
     }
 }

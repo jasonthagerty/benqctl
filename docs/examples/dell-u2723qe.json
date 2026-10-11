@@ -1,0 +1,39 @@
+{
+    "name": "Dell U2723QE",
+    "match": "^DEL:DELL U2723QE",
+    "extends": "generic",
+    "overrides": {
+        "0x60": {
+            "type": "buttons",
+            "names": {
+                "0x0f": "DisplayPort",
+                "0x11": "HDMI",
+                "0x1b": "USB-C"
+            }
+        },
+        "0x16": {
+            "hidden": true
+        }
+    },
+    "sections": [
+        {
+            "title": "Power",
+            "controls": [
+                {
+                    "code": "0xd6",
+                    "type": "buttons",
+                    "label": "Power",
+                    "names": {
+                        "0x01": "On",
+                        "0x04": "Standby",
+                        "0x05": "Off"
+                    }
+                }
+            ]
+        }
+    ],
+    "summary": [
+        "0x60",
+        "0xdc"
+    ]
+}

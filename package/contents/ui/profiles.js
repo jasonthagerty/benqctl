@@ -10,6 +10,7 @@
 //               listed in the capabilities string are used, named via `names`
 //   max         slider maximum used until the monitor reports one
 //   on, off     values written by a toggle
+//   hidden      drop the control (lets a user profile remove one it extends)
 //   undeclared  vendor code missing from the capabilities string: always shown,
 //               read in its own getvcp (ddcutil misreports these inside a
 //               multi-code read)
@@ -20,6 +21,7 @@ var mute = { code: Mccs.MUTE, type: "toggle", label: "Mute", on: Mccs.MUTED, off
 
 var generic = {
     id: "generic",
+    name: "Generic (MCCS)",
     summary: [Mccs.INPUT, Mccs.BRIGHTNESS],
     locks: [],
     sections: [
@@ -51,6 +53,7 @@ var RD280U_HDR_MODE = 0x23;
 
 var benqRd280u = {
     id: "benq-rd280u",
+    name: "BenQ RD280U",
     match: /^BNQ:.*RD280U/,
     summary: [Mccs.INPUT, Mccs.DISPLAY_MODE],
     // The monitor switches to HDR mode on an HDR signal and then rejects writes
@@ -121,17 +124,25 @@ var benqRd280u = {
 };
 
 var vendorProfiles = [benqRd280u];
+// Profiles user profiles can name in "extends" (see userprofiles.js).
+var bundledProfiles = vendorProfiles.concat([generic]);
 
 // mfgModel is "MFG:Model" from ddcutil detect; capabilities is parseCapabilities()
 // output, or null when the monitor gave none (then nothing is filtered out).
-function forDisplay(mfgModel, capabilities) {
-    var def = vendorProfiles.find(function (p) { return p.match.test(mfgModel); }) || generic;
+// userDefs (userprofiles.js) are tried before the bundled vendor profiles.
+function forDisplay(mfgModel, capabilities, userDefs) {
+    var def = (userDefs || []).concat(vendorProfiles).find(function (p) {
+        return p.match && p.match.test(mfgModel);
+    }) || generic;
     return resolve(def, capabilities);
 }
 
 function resolve(def, capabilities) {
     var profile = {
         id: def.id,
+        name: def.name || def.id,
+        // File name for user profiles, so the UI can say where a profile came from.
+        file: def.file || "",
         locks: def.locks,
         sections: [],
         controls: {},
@@ -142,7 +153,7 @@ function resolve(def, capabilities) {
         var controls = [];
         section.controls.forEach(function (c) {
             var declared = !capabilities || capabilities.hasOwnProperty(c.code);
-            if (!declared && !c.undeclared) {
+            if (c.hidden || (!declared && !c.undeclared)) {
                 return;
             }
             var control = Object.assign({}, c);

@@ -17,6 +17,10 @@ Item {
     property string connector
     property int bus: -1
 
+    // User profile definitions from DisplayManager; see userprofiles.js.
+    property var userProfiles: []
+    // parseCapabilities() result; undefined until read, null if the monitor gave none.
+    property var capabilities: undefined
     // Resolved from the capabilities string on first refresh; see profiles.js.
     property var profile: null
     property string error: ""
@@ -31,6 +35,12 @@ Item {
 
     // A command failed; the bus may have changed.
     signal failed()
+
+    // User profiles were (re)loaded: pick this monitor's profile again. Values
+    // for codes the new profile adds are read on the next refresh.
+    onUserProfilesChanged: if (capabilities !== undefined) {
+        resolveProfile();
+    }
 
     function has(code) {
         return values[code] !== undefined;
@@ -70,10 +80,15 @@ Item {
     function loadProfile() {
         run("caps", () => `ddcutil --bus ${bus} capabilities --terse`, {
             done: stdout => {
-                profile = Profiles.forDisplay(mfgModel, Mccs.parseCapabilities(stdout));
+                capabilities = Mccs.parseCapabilities(stdout);
+                resolveProfile();
                 refresh();
             },
         });
+    }
+
+    function resolveProfile() {
+        profile = Profiles.forDisplay(mfgModel, capabilities, userProfiles);
     }
 
     function set(code, value) {

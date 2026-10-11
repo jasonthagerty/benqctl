@@ -1,0 +1,29 @@
+{
+    "name": "Office monitor",
+    "match": "^ACI:VG248",
+    "summary": ["0x60", "0x10"],
+    "sections": [
+        {
+            "title": "Input",
+            "controls": [
+                {
+                    "code": "0x60",
+                    "type": "buttons",
+                    "label": "Video",
+                    "values": [
+                        { "value": "0x0f", "label": "Laptop" },
+                        { "value": "0x11", "label": "Desktop" }
+                    ]
+                }
+            ]
+        },
+        {
+            "title": "Picture",
+            "controls": [
+                { "code": "0x10", "type": "slider", "label": "Brightness" },
+                { "code": "0x12", "type": "slider", "label": "Contrast" },
+                { "code": "0xe8", "type": "slider", "label": "Blue light filter", "undeclared": true, "max": 10 }
+            ]
+        }
+    ]
+}

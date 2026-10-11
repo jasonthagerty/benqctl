@@ -25,7 +25,7 @@ DdcTestCase {
     property DisplayManager manager
 
     function init() {
-        shell(': > "$FAKE_DDCUTIL_DIR/calls"; rm -f "$FAKE_DDCUTIL_DIR/detect"');
+        shell(': > "$FAKE_DDCUTIL_DIR/calls"; rm -f "$FAKE_DDCUTIL_DIR/detect"; rm -rf "$XDG_DATA_HOME/benqctl"');
         manager = createTemporaryObject(managerComponent, testCase);
         manager.detect();
         tryVerify(() => manager.displays.length === 2, 5000);
@@ -46,6 +46,12 @@ DdcTestCase {
         return out;
     }
 
+    // Writes a user profile; name is relative to the profiles directory.
+    function writeProfile(name, text) {
+        const quoted = text.replace(/'/g, "'\\''");
+        shell(`mkdir -p "$XDG_DATA_HOME/benqctl/profiles" && printf '%s' '${quoted}' > "$XDG_DATA_HOME/benqctl/profiles/${name}"`);
+    }
+
     function calls() {
         return shell('cat "$FAKE_DDCUTIL_DIR/calls"').trim().split("\n");
     }
@@ -58,6 +64,7 @@ DdcTestCase {
         compare(manager.displays.map(d => d.name), ["BenQ RD280U", "DELL U2723QE"]);
         compare(manager.selected.connector, "HDMI-A-1");
         compare(manager.error, "");
+        compare(manager.profileErrors, [], "no profiles directory is the normal case");
         compare(manager.forConnector("DP-1").name, "BenQ RD280U");
         compare(manager.forConnector("eDP-1").name, "BenQ RD280U", "unknown screens fall back to the first");
     }
@@ -145,6 +152,52 @@ DdcTestCase {
         const detects = calls().filter(c => c === "detect --terse").length;
         verify(detects <= 3, `${detects} detects`);
         compare(manager.displays.length, 3, "still listed; Retry or reopening tries again");
+    }
+
+    function test_user_profiles_load_before_displays_resolve() {
+        writeProfile("dell.json", fixture("../../docs/examples/dell-u2723qe.json"));
+        const fresh = createTemporaryObject(managerComponent, testCase);
+        fresh.detect();
+        tryVerify(() => fresh.displays.length === 2 && !fresh.busy, 5000);
+        const dell = fresh.displays.find(d => d.connector === "HDMI-A-1");
+        compare(dell.profile.name, "Dell U2723QE");
+        compare(dell.status, "HDMI · Movie");
+        compare(fresh.profileErrors, []);
+        compare(fresh.displays.find(d => d.connector === "DP-1").profile.id, "benq-rd280u");
+    }
+
+    function test_refresh_reloads_user_profiles() {
+        const dell = display("HDMI-A-1");
+        compare(dell.profile.id, "generic");
+        writeProfile("dell.json", '{"match": "U2723QE", "extends": "generic", "overrides": {"0x10": {"label": "Light"}}}');
+        shell(': > "$FAKE_DDCUTIL_DIR/calls"');
+        manager.refresh();
+        tryVerify(() => dell.profile.id === "dell", 5000);
+        compare(dell.profile.controls[Mccs.BRIGHTNESS].label, "Light");
+        tryVerify(() => !manager.busy, 5000);
+        verify(!calls().some(c => c.includes("capabilities")), "re-resolved from cached capabilities");
+    }
+
+    function test_unchanged_reload_keeps_profiles() {
+        writeProfile("dell.json", '{"match": "U2723QE", "extends": "generic"}');
+        manager.refresh();
+        const dell = display("HDMI-A-1");
+        tryVerify(() => dell.profile.id === "dell", 5000);
+        tryVerify(() => !manager.busy, 5000);
+        const before = dell.profile;
+        manager.refresh();
+        tryVerify(() => !manager.busy, 5000);
+        verify(dell.profile === before, "same profiles: no re-resolve, controls aren't rebuilt");
+    }
+
+    function test_broken_user_profile_is_reported() {
+        writeProfile("bad.json", '{"match": "U2723QE", "extends": "nope"}');
+        writeProfile("worse.json", "{");
+        manager.refresh();
+        tryVerify(() => manager.profileErrors.length === 2, 5000);
+        verify(manager.profileErrors[0].startsWith("bad.json: \"extends\""), manager.profileErrors[0]);
+        verify(manager.profileErrors[1].startsWith("worse.json: "), manager.profileErrors[1]);
+        compare(display("HDMI-A-1").profile.id, "generic", "falls back to the bundled profiles");
     }
 
     function test_redetect_keeps_display_objects() {
