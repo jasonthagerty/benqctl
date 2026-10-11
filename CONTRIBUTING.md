@@ -65,6 +65,10 @@ None of the tests touch real hardware. When ddcutil's behaviour matters, record 
 real output into a fixture instead of writing one by hand. For example, `getvcp` exits
 1 when any one code fails, and still prints the others.
 
+CI (`.github/workflows/tests.yml`) runs the suite, `qmllint` and `bash -n` on every
+push and pull request, in an Arch Linux container: Plasma 6's `plasma5support` isn't
+packaged for Ubuntu runners.
+
 Run `qmllint` too. "Unqualified access" warnings for `i18n` and for outer ids used
 inside delegates and inline components are expected:
 

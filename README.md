@@ -1,5 +1,7 @@
 # benqctl
 
+[![Tests](https://github.com/jasonthagerty/benqctl/actions/workflows/tests.yml/badge.svg)](https://github.com/jasonthagerty/benqctl/actions/workflows/tests.yml)
+
 A KDE Plasma 6 widget that controls external monitors over DDC/CI with `ddcutil`.
 Every monitor `ddcutil detect` finds gets a tab; the popup opens on the monitor the
 widget's panel is on.

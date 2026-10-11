@@ -1,0 +1,37 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # Plasma 6 (plasma5support) isn't packaged for Ubuntu runners; Arch has it
+    # and matches the development environment.
+    container: archlinux:latest
+    steps:
+      - name: Install dependencies
+        # qt6-declarative: qmltestrunner, qmllint. plasma5support: the QML module
+        # and executable data engine Runner.qml uses to run (fake) ddcutil.
+        run: pacman -Syu --noconfirm --needed git qt6-declarative plasma5support
+
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: tests/run.sh
+
+      - name: Lint QML
+        # "Unqualified access" is expected for Plasma's injected i18n and for outer
+        # ids used inside delegates (see CONTRIBUTING.md); fail on anything else.
+        run: |
+          set -o pipefail
+          /usr/lib/qt6/bin/qmllint -I /usr/lib/qt6/qml package/contents/ui/*.qml 2>&1 | tee qmllint.log || true
+          if grep -E '^(Warning|Error)' qmllint.log | grep -v 'Unqualified access'; then
+            echo "::error::qmllint reported problems"
+            exit 1
+          fi
+
+      - name: Check shell scripts
+        run: bash -n tests/run.sh tests/bin/ddcutil tools/vcp-diff.sh
