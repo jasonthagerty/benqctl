@@ -31,16 +31,15 @@ See [docs/vcp-codes.md](docs/vcp-codes.md) for the full RD280U code map and how 
 was derived. Unmapped codes can be found with `tools/vcp-diff.sh`, which diffs all
 readable codes around an OSD change.
 
-To add a monitor, add a profile to `vendorProfiles` in `profiles.js` with a `match`
-regex; controls not listed in the monitor's capabilities string are dropped unless
-marked `undeclared`.
+To add a profile for another monitor, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor-profile).
 
 ## Requirements
 
 - Plasma 6, `ddcutil` 2.x+
 - Read/write access to `/dev/i2c-*` (the `i2c-dev` module loaded and a udev rule
   or group membership; `ddcutil detect` working as your user is enough)
-- DDC/CI enabled in each monitor's OSD. Laptop panels don't support DDC/CI.
+- DDC/CI enabled in each monitor's OSD. Laptop panels don't support DDC/CI and get
+  no tab; their brightness stays in Plasma's own brightness controls.
 
 ## Install / develop
 
@@ -52,14 +51,27 @@ plasmawindowed com.github.jasonthagerty.benqctl   # run outside the panel
 
 A panel instance only picks up changes after `plasmashell --replace &` (or re-login).
 
+## Tests
+
+```sh
+tests/run.sh
+```
+
+Runs the Qt Quick Test suite (needs `qmltestrunner` from `qt6-declarative`). The
+backend is tested end to end against a fake `ddcutil` that replays output recorded
+from a real RD280U, so no monitor is needed. See [CONTRIBUTING.md](CONTRIBUTING.md#tests).
+
 ## Design notes
 
 - `Runner.qml` runs every `ddcutil` command through one queue (concurrent I2C
   transactions corrupt each other) with a 15 s watchdog for hung calls. Slider writes
-  are coalesced per feature and applied optimistically, then re-read.
+  are coalesced per feature and applied optimistically, then re-read, so values the
+  monitor rejects snap back.
 - `DisplayManager.qml` runs `ddcutil detect` at startup, 3 s after screens are added
   or removed, after a command fails, and when the popup opens if the last detection
-  is over a minute old. Monitors are tracked by `MFG:Model:Serial`, not bus number.
+  is over a minute old. Monitors are tracked by `MFG:Model:Serial`, not bus number;
+  one that moved bus is re-read, one that keeps failing (e.g. in standby) waits for
+  Retry instead of being polled.
   The DRM connector `ddcutil` reports (`DP-1`) matches Qt's `Screen.name`, which is
   how the widget picks its own screen's monitor.
 - `Ddc.qml` (one per monitor) reads the capabilities string once to resolve its
@@ -68,5 +80,7 @@ A panel instance only picks up changes after `plasmashell --replace &` (or re-lo
   selected (~0.6 s per read).
 - Codes missing from the capabilities string (`0xE4`, `0x19`) are read in their own
   `getvcp` call: inside a multi-code read ddcutil returned wrong values for them.
+- `getvcp` exits 1 if any one code fails but still reports the others; those values
+  are kept, since capabilities strings sometimes list codes a monitor can't read.
 - PowerDevil also opens monitors through libddcutil, but its brightness slider did
   not change the RD280U's `0x10` in testing, so brightness is written directly.
