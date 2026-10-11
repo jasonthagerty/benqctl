@@ -34,6 +34,10 @@ package/contents/ui/
   mccs.js                 standard VCP codes/value names, capabilities parser
   profiles.js             generic and vendor profiles -> resolved control lists
   userprofiles.js         loads, validates and expands JSON user profiles
+  monitorsettings.js      per-monitor settings and known monitors (config JSON)
+  kscreen.js              kscreen-doctor -j -> outputs as Display Configuration shows them
+  configMonitors.qml      settings page: a card per monitor
+  ScreenLayout.qml        miniature screen arrangement with one output highlighted
   FullRepresentation.qml  popup: header, tab per monitor
   DisplayPage.qml         one monitor's sections and controls, from its profile
   ControlRow.qml          label + slider / combo box / buttons / switch
@@ -54,10 +58,11 @@ tests/run.sh -input tests/tst_profiles.qml           # one file
 tests/run.sh -input tests/tst_runner.qml runner::test_replace_keeps_only_the_latest_job
 ```
 
-- `tst_ddcutil.qml`, `tst_mccs.qml`, `tst_profiles.qml` and `tst_userprofiles.qml`
-  are unit tests of the JS modules, fed real output recorded from an RD280U
-  (`tests/fixtures/`). The examples in `docs/examples/` are loaded too, so the
-  documented format can't drift from the code.
+- `tst_ddcutil.qml`, `tst_mccs.qml`, `tst_profiles.qml`, `tst_userprofiles.qml`,
+  `tst_kscreen.qml` and `tst_monitorsettings.qml` are unit tests of the JS modules,
+  fed real output recorded from an RD280U and its `kscreen-doctor` (`tests/fixtures/`).
+  The examples in `docs/examples/` are loaded too, so the documented format can't
+  drift from the code.
 - `tst_runner.qml` runs real shell commands through `Runner`: ordering, coalescing,
   cancellation and the watchdog.
 - `tst_display_manager.qml` runs `DisplayManager` and `Ddc` end to end against
@@ -81,6 +86,10 @@ inside delegates and inline components are expected:
 ```sh
 /usr/lib/qt6/bin/qmllint -I /usr/lib/qt6/qml package/contents/ui/*.qml
 ```
+
+`kscreen-doctor` hangs when `QT_QPA_PLATFORM=offscreen` is in its environment. That
+matters only if you render the settings page in an offscreen harness: put a wrapper
+first on `PATH` that runs it with `env -u QT_QPA_PLATFORM`.
 
 ## Adding a monitor profile
 

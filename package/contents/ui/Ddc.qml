@@ -19,6 +19,8 @@ Item {
 
     // User profile definitions from DisplayManager; see userprofiles.js.
     property var userProfiles: []
+    // Profile id chosen on the settings page; "" picks one by match.
+    property string forcedProfile
     // parseCapabilities() result; undefined until read, null if the monitor gave none.
     property var capabilities: undefined
     // Resolved from the capabilities string on first refresh; see profiles.js.
@@ -40,6 +42,10 @@ Item {
     // for codes the new profile adds are read on the next refresh.
     onUserProfilesChanged: if (capabilities !== undefined) {
         resolveProfile();
+    }
+    onForcedProfileChanged: if (capabilities !== undefined) {
+        resolveProfile();
+        refresh();
     }
 
     function has(code) {
@@ -88,7 +94,7 @@ Item {
     }
 
     function resolveProfile() {
-        profile = Profiles.forDisplay(mfgModel, capabilities, userProfiles);
+        profile = Profiles.forDisplay(mfgModel, capabilities, userProfiles, forcedProfile);
     }
 
     function set(code, value) {

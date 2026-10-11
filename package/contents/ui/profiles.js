@@ -130,11 +130,31 @@ var bundledProfiles = vendorProfiles.concat([generic]);
 // mfgModel is "MFG:Model" from ddcutil detect; capabilities is parseCapabilities()
 // output, or null when the monitor gave none (then nothing is filtered out).
 // userDefs (userprofiles.js) are tried before the bundled vendor profiles.
-function forDisplay(mfgModel, capabilities, userDefs) {
-    var def = (userDefs || []).concat(vendorProfiles).find(function (p) {
+// forcedId, if set and known, picks a profile by id instead of by match
+// (the per-monitor "Profile" setting).
+function forDisplay(mfgModel, capabilities, userDefs, forcedId) {
+    return resolve(definitionFor(mfgModel, userDefs, forcedId), capabilities);
+}
+
+function definitionFor(mfgModel, userDefs, forcedId) {
+    var forced = forcedId && available(userDefs).find(function (p) { return p.id === forcedId; });
+    return forced || matching(mfgModel, userDefs);
+}
+
+// The profile chosen by match, i.e. what "Automatic" means for a monitor.
+function matching(mfgModel, userDefs) {
+    return (userDefs || []).concat(vendorProfiles).find(function (p) {
         return p.match && p.match.test(mfgModel);
     }) || generic;
-    return resolve(def, capabilities);
+}
+
+// Profiles that can be chosen by id: user ones first, then the bundled ones.
+// A user profile with a bundled id shadows it.
+function available(userDefs) {
+    var user = userDefs || [];
+    return user.concat(bundledProfiles.filter(function (b) {
+        return !user.some(function (u) { return u.id === b.id; });
+    }));
 }
 
 function resolve(def, capabilities) {

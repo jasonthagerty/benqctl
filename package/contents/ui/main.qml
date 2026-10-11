@@ -2,13 +2,25 @@ import QtQuick
 import QtQuick.Window
 import org.kde.plasma.plasmoid
 
+import "monitorsettings.js" as MonitorSettings
+
 PlasmoidItem {
     id: root
 
     DisplayManager {
         id: displayManager
         preferredConnector: root.Screen.name
+        monitorSettings: MonitorSettings.parse(Plasmoid.configuration.monitorSettings)
         Component.onCompleted: detect()
+
+        // Remember monitors so the settings page can list ones that aren't connected.
+        onSeen: found => {
+            const result = MonitorSettings.remember(MonitorSettings.parse(Plasmoid.configuration.knownMonitors),
+                                                    found, MonitorSettings.today());
+            if (result.changed) {
+                Plasmoid.configuration.knownMonitors = JSON.stringify(result.known);
+            }
+        }
     }
 
     Plasmoid.icon: "video-display"

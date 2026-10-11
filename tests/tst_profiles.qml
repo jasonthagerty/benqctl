@@ -77,6 +77,25 @@ DdcTestCase {
         verify(!p.locks[0].codes.includes(Mccs.SHARPNESS), "sharpness stays adjustable in HDR");
     }
 
+    function test_forced_profile_overrides_match() {
+        const caps = Mccs.parseCapabilities(fixture("bus5/capabilities.txt"));
+        compare(Profiles.forDisplay("BNQ:BenQ RD280U", caps, [], "generic").id, "generic");
+        compare(Profiles.forDisplay("DEL:DELL U2723QE", caps, [], "benq-rd280u").id, "benq-rd280u");
+        compare(Profiles.forDisplay("BNQ:BenQ RD280U", caps, [], "deleted-user-profile").id, "benq-rd280u",
+                "an unknown id falls back to matching");
+        compare(Profiles.forDisplay("BNQ:BenQ RD280U", caps, [], "").id, "benq-rd280u");
+    }
+
+    function test_matching_and_available() {
+        compare(Profiles.matching("BNQ:BenQ RD280U", []).id, "benq-rd280u");
+        compare(Profiles.matching("DEL:X", []).id, "generic");
+        compare(Profiles.available([]).map(p => p.id), ["benq-rd280u", "generic"]);
+        const user = [{ id: "generic", name: "Mine", sections: [], summary: [], locks: [] },
+                      { id: "lg", name: "LG", sections: [], summary: [], locks: [] }];
+        compare(Profiles.available(user).map(p => p.name), ["Mine", "LG", "BenQ RD280U"],
+                "a user profile with a bundled id shadows it");
+    }
+
     function test_describe() {
         const p = Profiles.forDisplay("BNQ:BenQ RD280U", caps("bus5/capabilities.txt"));
         compare(Profiles.describe(p.controls[Mccs.INPUT], { cur: 0x13 }), "USB-C");

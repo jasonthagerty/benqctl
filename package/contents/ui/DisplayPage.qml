@@ -65,9 +65,11 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.topMargin: Kirigami.Units.smallSpacing
         visible: !!page.ddc?.profile
-        text: page.ddc?.profile?.file
-            ? i18n("Profile: %1 (%2)", page.ddc.profile.name, page.ddc.profile.file)
-            : i18n("Profile: %1", page.ddc?.profile?.name ?? "")
+        // The connector is the output's name in System Settings › Display Configuration.
+        text: [page.ddc?.connector ?? "",
+               page.ddc?.profile?.file
+                   ? i18n("Profile: %1 (%2)", page.ddc.profile.name, page.ddc.profile.file)
+                   : i18n("Profile: %1", page.ddc?.profile?.name ?? "")].filter(s => s).join(" · ")
         font: Kirigami.Theme.smallFont
         opacity: 0.7
         elide: Text.ElideRight

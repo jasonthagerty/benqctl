@@ -200,6 +200,36 @@ DdcTestCase {
         compare(display("HDMI-A-1").profile.id, "generic", "falls back to the bundled profiles");
     }
 
+    function test_settings_hide_rename_and_force_profile() {
+        let seen = null;
+        manager.seen.connect(found => seen = found);
+        manager.monitorSettings = {
+            "BNQ:BenQ RD280U:H5S0048201Q": { nickname: "Desk", profile: "generic" },
+            "DEL:DELL U2723QE:ABC123": { hidden: true },
+        };
+        compare(manager.displays.map(d => d.name), ["Desk"], "applied from the last detection, no ddcutil call");
+        const benq = manager.displays[0];
+        compare(benq.profile.id, "generic", "forced, re-resolved from cached capabilities");
+        compare(manager.selected, benq, "selection moves off the hidden monitor");
+        tryVerify(() => !manager.busy, 5000);
+
+        manager.detect();
+        tryVerify(() => seen !== null, 5000);
+        compare(seen.length, 2, "hidden monitors are still reported for knownMonitors");
+        compare(manager.displays.length, 1);
+
+        manager.monitorSettings = {};
+        compare(manager.displays.map(d => d.name), ["BenQ RD280U", "DELL U2723QE"]);
+        compare(benq.profile.id, "benq-rd280u", "same object, back to the matching profile");
+    }
+
+    function test_all_hidden_explains_why() {
+        manager.monitorSettings = { "BNQ:BenQ RD280U:H5S0048201Q": { hidden: true }, "DEL:DELL U2723QE:ABC123": { hidden: true } };
+        compare(manager.displays.length, 0);
+        compare(manager.selected, null);
+        verify(manager.error.startsWith("All monitors are hidden"), manager.error);
+    }
+
     function test_redetect_keeps_display_objects() {
         const before = manager.displays.slice();
         manager.detect();

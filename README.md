@@ -40,6 +40,23 @@ readable codes around an OSD change.
 
 To contribute a bundled profile, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-monitor-profile).
 
+## Settings
+
+Right-click the widget › Configure › Monitors lists every monitor the widget has
+detected, including ones that aren't connected right now. Each card shows how the
+monitor appears in System Settings › Display Configuration: its connector, whether
+it's primary, mode, scale and HDR, plus a miniature of the screen arrangement with
+it highlighted. There you can:
+
+- hide a monitor from the widget
+- give it a nickname, used for its tab and tooltip
+- force a profile instead of the one picked by `match`
+- forget a monitor that's no longer used
+
+The card also warns when DDC/CI is turned off for that output in Display
+Configuration. Display details come from `kscreen-doctor`; without it the page
+still works, minus those details.
+
 ## Requirements
 
 - Plasma 6, `ddcutil` 2.x+

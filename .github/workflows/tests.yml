@@ -15,8 +15,8 @@ jobs:
       - name: Install dependencies
         # qt6-declarative: qmltestrunner, qmllint. plasma5support: the QML module
         # and executable data engine Runner.qml uses to run (fake) ddcutil.
-        # kirigami, libplasma: imported by the UI files, needed for qmllint.
-        run: pacman -Syu --noconfirm --needed git qt6-declarative plasma5support kirigami libplasma
+        # kirigami, libplasma, kcmutils: imported by the UI files, needed for qmllint.
+        run: pacman -Syu --noconfirm --needed git qt6-declarative plasma5support kirigami libplasma kcmutils
 
       - uses: actions/checkout@v5
 

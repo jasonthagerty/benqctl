@@ -1,6 +1,7 @@
 import QtQuick
 
 import "ddcutil.js" as Ddcutil
+import "monitorsettings.js" as MonitorSettings
 import "userprofiles.js" as UserProfiles
 
 // Finds DDC/CI monitors with ddcutil detect and keeps one Ddc per monitor,
@@ -21,6 +22,17 @@ Item {
     property bool profilesRequested: false
     // Serialised userProfiles, so a reload that changes nothing doesn't rebuild every page.
     property string profilesKey: "[]"
+    // Parsed monitorSettings config: hidden, nickname and forced profile per monitor.
+    property var monitorSettings: ({})
+    // Last ddcutil detect result, so settings changes apply without detecting again.
+    property var lastFound: []
+
+    // Every monitor detection found, hidden ones included (for knownMonitors).
+    signal seen(var found)
+
+    onMonitorSettingsChanged: if (lastDetect > 0) {
+        apply(lastFound);
+    }
     readonly property bool busy: commandRunner.busy
 
     Runner {
@@ -74,7 +86,9 @@ Item {
                     return;
                 }
                 lastDetect = Date.now();
-                apply(Ddcutil.parseDetect(stdout));
+                lastFound = Ddcutil.parseDetect(stdout);
+                seen(lastFound);
+                apply(lastFound);
             },
         });
     }
@@ -98,7 +112,10 @@ Item {
         for (const d of displays) {
             old[d.displayId] = d;
         }
-        const next = found.map(f => {
+        const shown = found.filter(f => !MonitorSettings.settingsFor(monitorSettings, f.id).hidden);
+        const next = shown.map(f => {
+            const settings = MonitorSettings.settingsFor(monitorSettings, f.id);
+            const name = settings.nickname || f.name;
             let d = old[f.id];
             if (d) {
                 delete old[f.id];
@@ -107,7 +124,8 @@ Item {
                 const retry = d.bus !== f.bus;
                 d.bus = f.bus;
                 d.connector = f.connector;
-                d.name = f.name;
+                d.name = name;
+                d.forcedProfile = settings.profile;
                 if (retry) {
                     d.refresh();
                 }
@@ -116,9 +134,10 @@ Item {
             d = ddcComponent.createObject(manager, {
                 displayId: f.id,
                 mfgModel: f.mfgModel,
-                name: f.name,
+                name: name,
                 connector: f.connector,
                 bus: f.bus,
+                forcedProfile: settings.profile,
             });
             // The bus may have moved; find it again so the next action works.
             d.failed.connect(manager.detect);
@@ -133,7 +152,9 @@ Item {
         if (!next.includes(selected)) {
             selected = forConnector(preferredConnector);
         }
-        error = next.length > 0 ? "" : i18n("No monitor with DDC/CI found. Check that DDC/CI is enabled in the monitor's menu and that “ddcutil detect” works as your user.");
+        error = next.length > 0 ? ""
+            : found.length > 0 ? i18n("All monitors are hidden. Show them again in this widget's settings.")
+            : i18n("No monitor with DDC/CI found. Check that DDC/CI is enabled in the monitor's menu and that “ddcutil detect” works as your user.");
     }
 
     // Monitors take a moment to answer DDC/CI after they appear.
